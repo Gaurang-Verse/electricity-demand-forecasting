@@ -1,0 +1,15 @@
+# Models compared in the walk-forward backtest (scripts/run_backtest.py).
+#
+# The LightGBM settings are common defaults, not tuned values. If they get
+# tuned later, the tuning must be judged on the backtest folds only, never
+# on the holdout.
+
+models:
+  seasonal_naive: {}
+  linear: {}
+  lightgbm:
+    n_estimators: 500
+    learning_rate: 0.05
+    num_leaves: 31
+    min_child_samples: 20
+    random_state: 42

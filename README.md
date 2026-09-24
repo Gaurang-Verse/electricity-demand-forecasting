@@ -7,7 +7,7 @@ a single train/test split.
 
 This README is being built up phase by phase, alongside the project. Right
 now it only covers what's actually implemented so far (data acquisition
-through the backtest framework). See `docs/` for the full design rationale and
+through the model backtest). See `docs/` for the full design rationale and
 measured results.
 
 ## Status
@@ -24,10 +24,12 @@ measured results.
       The first version leaked into the 24h forecast window; caught and
       fixed, see docs/features_and_backtesting.md
 - [x] Walk-forward split framework — 12 monthly folds + 90-day holdout
-- [ ] Baselines
-- [ ] Model training
-- [ ] Experiment tracking
-- [ ] Model evaluation
+- [x] Models — seasonal-naive, linear, LightGBM; backtested on all 12
+      folds. LightGBM wins overall (RMSE 0.616 kW vs 0.638 linear vs
+      0.819 seasonal-naive); see docs/backtest_results.md
+- [x] Experiment tracking — one MLflow run per model, per-fold metrics
+- [ ] Holdout evaluation (once, at the end)
+- [ ] Model versioning
 - [ ] Inference / REST API
 - [ ] Testing
 - [ ] Docker
@@ -41,6 +43,14 @@ measured results.
 python -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
+```
+
+**macOS only:** LightGBM needs the OpenMP runtime library, which isn't
+bundled by pip on Mac. If `import lightgbm` fails with a `libomp.dylib`
+error, install it once with Homebrew:
+
+```
+brew install libomp
 ```
 
 ## Getting the data
@@ -92,6 +102,32 @@ walk-forward folds with expanding training windows (settings in
 
 ```
 python scripts/describe_folds.py
+```
+
+## Backtesting the models
+
+```
+python scripts/run_backtest.py
+```
+
+Fits seasonal-naive, linear regression and LightGBM (settings in
+`configs/models.yaml`) on each of the 12 folds, prints RMSE / MAE / MAPE /
+bias overall, per fold and per season, and saves the numbers to
+`data/processed/backtest_results.json`. Only dev data is used; the holdout
+isn't touched. Each model is logged as an MLflow run.
+
+**Measured result:** LightGBM has the lowest error on every pooled metric
+(RMSE 0.616 kW, vs. 0.638 for linear regression and 0.819 for the
+seasonal-naive baseline). The margin over the linear model is real but
+modest — most of the accuracy gain comes from the lag/rolling/calendar
+features, not from model complexity. Full breakdown, including where
+LightGBM does *not* beat the linear model (2 of 12 folds), in
+`docs/backtest_results.md`.
+
+To browse the MLflow runs:
+
+```
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 ## Tests and lint
