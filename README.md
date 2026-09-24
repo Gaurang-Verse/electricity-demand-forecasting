@@ -7,7 +7,7 @@ a single train/test split.
 
 This README is being built up phase by phase, alongside the project. Right
 now it only covers what's actually implemented so far (data acquisition
-through preprocessing). See `docs/` for the full design rationale and
+through the backtest framework). See `docs/` for the full design rationale and
 measured results.
 
 ## Status
@@ -20,10 +20,11 @@ measured results.
 - [x] Preprocessing — resamples to hourly (34,589 hourly rows measured),
       forward-fill only (no leakage); confirmed missingness co-occurs
       across all columns as predicted
-- [x] Feature engineering — leakage-safe lag/rolling/calendar features,
-      verified by a dedicated test that corrupts future values and checks
-      earlier features don't change (tests/test_features_leakage.py)
-- [ ] Baseline + walk-forward split framework
+- [x] Feature engineering — horizon-safe lag/rolling/calendar features.
+      The first version leaked into the 24h forecast window; caught and
+      fixed, see docs/features_and_backtesting.md
+- [x] Walk-forward split framework — 12 monthly folds + 90-day holdout
+- [ ] Baselines
 - [ ] Model training
 - [ ] Experiment tracking
 - [ ] Model evaluation
@@ -72,21 +73,36 @@ interpolation, to avoid leaking future values into a "past" row), then
 resamples to hourly. Saves `data/processed/hourly.parquet`. See
 `docs/data_validation.md` for the reasoning behind the fill strategy.
 
-## Feature engineering
+## Feature engineering and backtesting
 
-`src/elec_forecast/features.py` builds lag features (same hour 1, 2, and 7
-days prior), rolling mean/std (trailing 24h and 168h windows, computed on
-data shifted by 1 hour so the window never includes the current hour), and
-calendar features (hour, day of week, month, weekend flag) — all
-leakage-safe by construction. `tests/test_features_leakage.py` proves this
-rather than asserting it: it corrupts every value after a chosen cutoff
-hour with an extreme outlier and checks that features at or before the
-cutoff are byte-for-byte unchanged, plus a sanity check that corrupting the
-*past* does change later features (so the test isn't trivially passing).
+`src/elec_forecast/features.py` builds lags (24h, 48h, 1 week), rolling
+mean/std (24h and 168h windows) and calendar features. No feature uses
+data newer than 24 hours before its own row, because that's the newest
+data available for every hour of a 24-hour-ahead forecast.
+
+The first version of the rolling features broke that rule, and its
+leakage test passed anyway because it checked the wrong property.
+`docs/features_and_backtesting.md` covers the bug, how it was caught, and
+the rewritten test that now proves the fix.
+
+`src/elec_forecast/splitting.py` splits the data chronologically: a
+90-day holdout scored once at the end, plus 12 back-to-back 30-day
+walk-forward folds with expanding training windows (settings in
+`configs/backtest.yaml`). Print the real fold boundaries with:
 
 ```
-pytest tests/ -v
+python scripts/describe_folds.py
 ```
+
+## Tests and lint
+
+```
+ruff check src/ tests/ scripts/
+python -m pytest tests/ -v
+```
+
+Use `python -m pytest`, not bare `pytest`, so the tests always run under
+the venv's Python.
 
 ## Data and credits
 

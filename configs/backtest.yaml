@@ -1,0 +1,19 @@
+# Walk-forward backtest setup shared by every model (baselines and LightGBM),
+# so all of them are scored on exactly the same folds.
+
+hourly_path: "data/processed/hourly.parquet"
+
+# The last 90 days are held out and scored once, at the very end, after
+# every model and feature decision has been made on the backtest folds.
+holdout_hours: 2160
+
+# Walk-forward folds, placed back to back just before the holdout. Each
+# fold trains on everything before its origin and scores the next 30 days.
+# 12 folds x 30 days = one full year, so every season is scored.
+n_folds: 12
+fold_test_hours: 720
+
+# Every fold needs at least a full year of training history, so the model
+# has seen every season before it's scored on one. The split raises an
+# error if the data can't provide that.
+min_train_hours: 8760
