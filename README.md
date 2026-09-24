@@ -5,10 +5,18 @@ historical smart-meter readings, built leakage-safe: chronological splits
 only, and walk-forward backtesting across multiple time windows instead of
 a single train/test split.
 
+**Final result, evaluated once on a 90-day holdout no model decision ever
+touched: RMSE 0.655 kW, MAPE 76.8%.** LightGBM beat a seasonal-naive
+baseline (0.819 kW) and a linear-regression baseline (0.638 kW) in
+backtesting, though only modestly over the linear model. The holdout
+result is measurably worse than the backtest average (0.616 kW) — see
+`docs/holdout_evaluation.md` for what that gap does and doesn't mean; it
+isn't glossed over here.
+
 This README is being built up phase by phase, alongside the project. Right
 now it only covers what's actually implemented so far (data acquisition
-through the model backtest). See `docs/` for the full design rationale and
-measured results.
+through holdout evaluation and model versioning). See `docs/` for the full
+design rationale and measured results.
 
 ## Status
 
@@ -28,8 +36,10 @@ measured results.
       folds. LightGBM wins overall (RMSE 0.616 kW vs 0.638 linear vs
       0.819 seasonal-naive); see docs/backtest_results.md
 - [x] Experiment tracking — one MLflow run per model, per-fold metrics
-- [ ] Holdout evaluation (once, at the end)
-- [ ] Model versioning
+- [x] Holdout evaluation + model versioning — final result: RMSE 0.655 kW,
+      MAPE 76.8% on the untouched 90-day holdout (worse than the 0.616 kW
+      backtest average; see docs/holdout_evaluation.md for why)
+
 - [ ] Inference / REST API
 - [ ] Testing
 - [ ] Docker
@@ -129,6 +139,32 @@ To browse the MLflow runs:
 ```
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
+
+## Final holdout evaluation and model versioning
+
+```
+python scripts/evaluate_holdout.py
+```
+
+Trains the shipped model (LightGBM, on ALL dev hours, not just one fold)
+and scores it once on the 90-day holdout no backtest fold has touched.
+Saves the trained model to `data/processed/model/` (gitignored, same
+reasoning as the arXiv project's model checkpoint: it's a regenerable
+binary) and the measured metrics to
+`data/processed/holdout_results.json` (committed).
+
+**Run this once.** Re-running it after seeing the result and changing
+something in response turns the holdout into a second validation set —
+the script prints a warning if the results file already exists, but
+doesn't stop you, because that decision belongs to you, not the script.
+
+**Measured result: RMSE 0.6549 kW, MAPE 76.82%** on the 90-day holdout —
+worse than the 0.6156 kW / 59.93% backtest average. This is reported as
+the headline number for this project, not the more favorable backtest
+figure. `docs/holdout_evaluation.md` covers what the gap does and doesn't
+tell us, and why the most comparable backtest fold (nearly adjacent in
+time) actually did much better, most likely a seasonal effect rather than
+a sign the backtest was optimistic across the board.
 
 ## Tests and lint
 

@@ -16,6 +16,12 @@ data/raw/
 data/processed/*
 !data/processed/.gitkeep
 !data/processed/backtest_results.json
+!data/processed/holdout_results.json
+
+# The shipped model artifact (data/processed/model/) is a binary + its
+# metadata, both regenerable by scripts/evaluate_holdout.py. Not committed;
+# the Docker build produces it fresh, same reasoning as Project A's model
+# checkpoint.
 
 # Model artifacts are binaries and stay out of git.
 *.pkl
