@@ -1,0 +1,11 @@
+# Convenience wrapper around `docker build` + `docker run` -- optional,
+# not required. Mounts your locally trained model read-only, so retraining
+# (scripts/evaluate_holdout.py, run on your machine, not in the container)
+# takes effect on the next `docker compose up` with no rebuild needed.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/processed/model:/app/data/processed/model:ro

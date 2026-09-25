@@ -1,0 +1,29 @@
+# Keep the build context (and the image) small and free of anything that
+# isn't needed to run the API. The Dockerfile only COPYs pyproject.toml
+# and src/ explicitly, but this also protects against a future `COPY . .`
+# accidentally shipping the raw dataset, venv, or git history.
+
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+.git/
+.gitignore
+
+data/
+notebooks/
+docs/
+tests/
+scripts/
+configs/
+
+mlruns/
+mlflow.db
+
+.env
+.DS_Store
+README.md

@@ -46,7 +46,10 @@ design rationale and measured results.
       see "REST API" below
 - [x] Testing — unit, leakage, API, and end-to-end integration tests;
       see "Tests and lint" below
-- [ ] Docker
+- [x] Docker — image runs the API only (not training); verified locally:
+      build succeeds, `/health` degrades to "unhealthy" with no model
+      mounted and reports "ok" once one is, `/forecast` responds over
+      real HTTP. See "Docker" below.
 - [ ] CI/CD — running lint + this test suite automatically on push
 - [ ] Monitoring
 - [ ] Full documentation
@@ -278,6 +281,15 @@ the venv's Python.
   one. This is a wiring check, not a source of measured results — those
   come only from the real scripts against the real data, in `docs/`.
 
+
+## Docker
+The image runs the FastAPI service only — not the training or backtest
+scripts. Training happens once, locally, against the real dataset; the
+image serves whatever model you point it at. See `Dockerfile` for the
+full reasoning (why `libgomp1` is installed explicitly, why the model
+directory is never baked in).
+
+Build:
 66 tests total.
 
 ## Data and credits

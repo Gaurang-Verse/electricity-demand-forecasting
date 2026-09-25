@@ -19,8 +19,10 @@ data/processed/*
 !data/processed/holdout_results.json
 
 # The shipped model artifact (data/processed/model/) is a binary + its
-# metadata, both regenerable by scripts/evaluate_holdout.py. Not committed;
-# the Docker build produces it fresh, same reasoning as Project A's model
+# metadata, both regenerable by scripts/evaluate_holdout.py. Not
+# committed and not baked into the Docker image either -- the image only
+# runs the API; the model is mounted into the container at `docker run`
+# time (see README "Docker"), same reasoning as Project A's model
 # checkpoint.
 
 # Model artifacts are binaries and stay out of git.
