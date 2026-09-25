@@ -13,48 +13,66 @@ result is measurably worse than the backtest average (0.616 kW) — see
 `docs/holdout_evaluation.md` for what that gap does and doesn't mean; it
 isn't glossed over here.
 
-This README is being built up phase by phase, alongside the project. Right
-now it only covers what's actually implemented so far (data acquisition
-through holdout evaluation and model versioning). See `docs/` for the full
-design rationale and measured results.
+This README is being built up phase by phase, alongside the project. See
+`docs/` for the full design rationale and measured results.
 
 ## Status
 
-- [x] Problem definition, dataset selection, design (see project docs)
-- [x] Data acquisition — real dataset downloaded and verified (2,075,259
-      rows, Dec 2006-Nov 2010, see docs/data_validation.md)
-- [x] Data validation — measured missing-value rate 1.25%, zero missing
-      timestamps, zero duplicates
-- [x] Preprocessing — resamples to hourly (34,589 hourly rows measured),
-      forward-fill only (no leakage); confirmed missingness co-occurs
-      across all columns as predicted
-- [x] Feature engineering — horizon-safe lag/rolling/calendar features.
-      The first version leaked into the 24h forecast window; caught and
-      fixed, see docs/features_and_backtesting.md
-- [x] Walk-forward split framework — 12 monthly folds + 90-day holdout
-- [x] Models — seasonal-naive, linear, LightGBM; backtested on all 12
-      folds. LightGBM wins overall (RMSE 0.616 kW vs 0.638 linear vs
-      0.819 seasonal-naive); see docs/backtest_results.md
-- [x] Experiment tracking — one MLflow run per model, per-fold metrics
-- [x] Holdout evaluation + model versioning — final result: RMSE 0.655 kW,
-      MAPE 76.8% on the untouched 90-day holdout (worse than the 0.616 kW
-      backtest average; see docs/holdout_evaluation.md for why)
+✅ **Problem definition, dataset selection, design** — see project docs
 
-- [x] Inference — `Predictor` class turns a window of recent history into a
-      24h forecast from the saved model artifact; see "Inference" below
-- [x] REST API — FastAPI `POST /forecast`, `GET /health`, `GET /metrics`;
-      see "REST API" below
-- [x] Testing — unit, leakage, API, and end-to-end integration tests;
-      see "Tests and lint" below
-- [x] Docker — image runs the API only (not training); verified locally:
-      build succeeds, `/health` degrades to "unhealthy" with no model
-      mounted and reports "ok" once one is, `/forecast` responds over
-      real HTTP. See "Docker" below.
-- [ ] CI/CD — running lint + this test suite automatically on push
-- [x] Monitoring — feature drift detection (z-score based, validated with
-      a null test and a positive control) and rolling forecast-error
-      tracking; see "Monitoring" below
-- [ ] Full documentation
+✅ **Data acquisition** — real dataset downloaded and verified (2,075,259
+rows, Dec 2006-Nov 2010, see docs/data_validation.md)
+
+✅ **Data validation** — measured missing-value rate 1.25%, zero missing
+timestamps, zero duplicates
+
+✅ **Preprocessing** — resamples to hourly (34,589 hourly rows measured),
+forward-fill only (no leakage); confirmed missingness co-occurs across all
+columns as predicted
+
+✅ **Feature engineering** — horizon-safe lag/rolling/calendar features.
+The first version leaked into the 24h forecast window; caught and fixed,
+see docs/features_and_backtesting.md
+
+✅ **Walk-forward split framework** — 12 monthly folds + 90-day holdout
+
+✅ **Models** — seasonal-naive, linear, LightGBM; backtested on all 12
+folds. LightGBM wins overall (RMSE 0.616 kW vs 0.638 linear vs 0.819
+seasonal-naive); see docs/backtest_results.md
+
+✅ **Experiment tracking** — one MLflow run per model, per-fold metrics
+
+✅ **Holdout evaluation + model versioning** — final result: RMSE 0.655 kW,
+MAPE 76.8% on the untouched 90-day holdout (worse than the 0.616 kW
+backtest average; see docs/holdout_evaluation.md for why)
+
+✅ **Inference** — `Predictor` class turns a window of recent history into
+a 24h forecast from the saved model artifact; see "Inference" below
+
+✅ **REST API** — FastAPI `POST /forecast`, `GET /health`, `GET /metrics`;
+see "REST API" below
+
+✅ **Testing** — unit, leakage, API, integration, and monitoring tests, 74
+total; see "Tests and lint" below
+
+✅ **Docker** — image runs the API only (not training); verified locally:
+build succeeds, `/health` degrades to "unhealthy" with no model mounted
+and reports "ok" once one is, `/forecast` responds over real HTTP. See
+"Docker" below.
+
+✅ **CI/CD** — GitHub Actions workflow (lint + full test suite + a gated
+Docker build) added; see "CI/CD" below. The same steps have been verified
+locally (`ruff check` clean, 74/74 tests passing).
+
+✅ **Monitoring** — feature drift detection and rolling forecast-error
+tracking, validated with a null test (stays quiet on a fresh sample from
+the same distribution) and a positive control (fires on a genuinely
+shifted batch); demonstrated against real backtest/holdout data, since
+there's no live production traffic yet. See "Monitoring" below.
+
+⬜ **Full documentation** — `docs/` covers the data and modeling phases in
+depth; inference/API/Docker/CI/monitoring design decisions are documented
+in the README only so far.
 
 ## Setup
 
@@ -163,11 +181,11 @@ binary) and the measured metrics to
 `data/processed/holdout_results.json` (committed).
 
 **Run this once.** Re-running it after seeing the result and changing
-something in response turns the holdout into a second validation set —
+something in response turns the holdout into a second validation set --
 the script prints a warning if the results file already exists, but
 doesn't stop you, because that decision belongs to you, not the script.
 
-**Measured result: RMSE 0.6549 kW, MAPE 76.82%** on the 90-day holdout —
+**Measured result: RMSE 0.6549 kW, MAPE 76.82%** on the 90-day holdout --
 worse than the 0.6156 kW / 59.93% backtest average. This is reported as
 the headline number for this project, not the more favorable backtest
 figure. `docs/holdout_evaluation.md` covers what the gap does and doesn't
@@ -177,8 +195,8 @@ a sign the backtest was optimistic across the board.
 
 ## Inference
 
-`src/elec_forecast/inference.py` provides `Predictor`, the one thing a
-future API layer depends on:
+`src/elec_forecast/inference.py` provides `Predictor`, the one thing the
+REST API depends on:
 
 ```python
 from elec_forecast.inference import Predictor
@@ -247,7 +265,7 @@ returns 503 in that state rather than crashing.
 
 **`GET /metrics`** — Prometheus text format: request count by outcome
 (`success/rejected`) and a request-latency histogram. This tracks that the
-API is being called and how it's responding, not forecast accuracy —
+API is being called and how it's responding, not forecast accuracy --
 that's Phase 16.
 
 Tested with `tests/test_api.py` (FastAPI `TestClient`, a real fitted
@@ -258,6 +276,11 @@ real HTTP before this shipped.
 
 ## Tests and lint
 
+```
+ruff check src/ tests/ scripts/
+python -m pytest tests/ -v
+```
+
 Use `python -m pytest`, not bare `pytest`, so the tests always run under
 the venv's Python.
 
@@ -265,7 +288,7 @@ the venv's Python.
 
 - **Unit** (`test_features.py`, `test_splitting.py`, `test_pipeline.py`,
   `test_models.py`, `test_metrics.py`, `test_backtest.py`,
-  `test_artifact.py`, `test_forecast_features.py`, `test_inference.py`) —
+  `test_artifact.py`, `test_forecast_features.py`, `test_inference.py`) --
   each module in isolation, with hand-built inputs.
 - **Leakage** (`test_features_leakage.py`) — the property that makes the
   whole project defensible: no feature in the forecast window uses data
@@ -277,14 +300,16 @@ the venv's Python.
   fitted models, no mocking.
 - **Integration** (`test_integration.py`) — the seam the other layers
   can't see: data through `prepare_backtest`, a full backtest for every
-  registered model, and a complete train → save → load → `Predictor` →
+  registered model, and a complete train -> save -> load -> `Predictor` ->
   live API round trip, all through the real functions each script calls,
   against a small synthetic dataset built for speed rather than the real
   one. This is a wiring check, not a source of measured results — those
   come only from the real scripts against the real data, in `docs/`.
 
+74 tests total (measured with `python -m pytest tests/ -v`; ruff clean).
 
 ## Docker
+
 The image runs the FastAPI service only — not the training or backtest
 scripts. Training happens once, locally, against the real dataset; the
 image serves whatever model you point it at. See `Dockerfile` for the
@@ -292,14 +317,97 @@ full reasoning (why `libgomp1` is installed explicitly, why the model
 directory is never baked in).
 
 Build:
-66 tests total.
+
+```
+docker build -t elec-forecast-api .
+```
+
+Run with your locally trained model mounted read-only:
+
+```
+docker run --rm -p 8000:8000 \
+  -v "$(pwd)/data/processed/model:/app/data/processed/model:ro" \
+  elec-forecast-api
+```
+
+or with `docker compose up --build`, which does the same thing from
+`docker-compose.yml`.
+
+Without a mounted model the container still starts — `/health` reports
+`{"status": "unhealthy", "detail": "..."}` instead of the process
+crashing, and `/forecast` returns 503. This was verified directly, not
+assumed: the container was run both with and without the mount, against
+a real model trained by `scripts/evaluate_holdout.py`, and `/health`
+reported the correct status each way.
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push and pull request to `main`:
+
+- **`lint-and-test`** — installs the package (`pip install -e ".[dev]"`),
+  runs `ruff check`, then the full test suite.
+- **`docker-build`** — gated on the first job passing; confirms the
+  Dockerfile still builds. This is the one check that couldn't be
+  dry-run during development (the development sandbox's network policy
+  blocks every container registry), so it runs for the first time for
+  real on GitHub's own runners.
 
 ## Monitoring
 
-`src/elec_forecast/monitoring.py` provides two checks, both demonstrated
-against real project data rather than live traffic, which doesn't exist
-yet:
+`src/elec_forecast/monitoring.py` provides two lightweight checks: feature
+drift detection and rolling forecast-error tracking. There's no live
+production traffic for this project (see below), so both are demonstrated
+against real backtest/holdout data rather than a live stream — but the
+checks themselves are exactly what a real deployment would run.
 
+**Drift detection** (`compute_reference_stats` / `drift_report`) compares a
+batch of feature values against a trusted reference (per-feature mean,
+expressed as a z-score using the reference std) and flags any feature whose
+average has moved more than `z_threshold` standard deviations. It's
+validated two ways, deliberately: a null test proving it stays quiet on a
+fresh sample drawn from the same distribution as the reference, and a
+positive control proving it actually fires on a batch shifted 4 reference
+std devs away. Either test alone would pass trivially — a detector that
+never fires passes the null test, one that always fires passes the positive
+control — so both are required, the same discipline the leakage test
+(`tests/test_features_leakage.py`) already applies. Run it against real
+project data with:
+
+```
+python scripts/check_drift.py
+```
+
+This uses the dev feature set as the reference and the 90-day holdout as
+the "current" batch. The holdout isn't drawn from a different population
+than dev — it's just the same household's last 90 days — so no drift is
+expected here; the script exists to run the check end-to-end against real
+data, not to demonstrate genuine drift against live traffic that doesn't
+exist yet.
+
+**Rolling forecast-error tracking** (`rolling_forecast_error`) takes a
+time-ordered log of `(datetime, actual, predicted)` rows — the shape a
+real deployment would log per served forecast once the true value is
+observed — and returns a rolling RMSE/MAE over a configurable window.
+Demonstrated against real backtest predictions with:
+
+```
+python scripts/monitor_forecast_errors.py
+```
+
+This re-runs the backtest (retrains all 12 folds) to get row-level
+predictions, since `scripts/run_backtest.py` only saves the summarized
+metrics, then prints the rolling 7-day forecast error.
+
+Both checks are unit-tested in `tests/test_monitoring.py`, including the
+null-test/positive-control pair for drift and a hand-computed check of the
+rolling-error arithmetic.
+
+**What this is and isn't:** there's no live production endpoint serving
+real users, so "monitoring" here means the mechanism is built, tested, and
+demonstrated end-to-end against real historical data — not that it's
+watching genuine production traffic. If this were deployed, `/forecast`
+requests and their eventual actuals would feed these same functions
+directly.
 
 ## Data and credits
 
