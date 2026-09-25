@@ -2,6 +2,9 @@
 name = "elec-forecast"
 version = "0.1.0"
 description = "Household electricity demand forecasting: leakage-safe time series pipeline with MLOps around it."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Gaurang Kumbhar" }]
 requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.1",
