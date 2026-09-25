@@ -44,10 +44,10 @@ design rationale and measured results.
       24h forecast from the saved model artifact; see "Inference" below
 - [x] REST API — FastAPI `POST /forecast`, `GET /health`, `GET /metrics`;
       see "REST API" below
-- [ ] Testing — unit/leakage/API tests exist; integration/Docker-level
-      testing still pending
+- [x] Testing — unit, leakage, API, and end-to-end integration tests;
+      see "Tests and lint" below
 - [ ] Docker
-- [ ] CI/CD
+- [ ] CI/CD — running lint + this test suite automatically on push
 - [ ] Monitoring
 - [ ] Full documentation
 
@@ -253,13 +253,32 @@ real HTTP before this shipped.
 
 ## Tests and lint
 
-```
-ruff check src/ tests/ scripts/
-python -m pytest tests/ -v
-```
-
 Use `python -m pytest`, not bare `pytest`, so the tests always run under
 the venv's Python.
+
+**Test layers:**
+
+- **Unit** (`test_features.py`, `test_splitting.py`, `test_pipeline.py`,
+  `test_models.py`, `test_metrics.py`, `test_backtest.py`,
+  `test_artifact.py`, `test_forecast_features.py`, `test_inference.py`) —
+  each module in isolation, with hand-built inputs.
+- **Leakage** (`test_features_leakage.py`) — the property that makes the
+  whole project defensible: no feature in the forecast window uses data
+  from the forecast origin onward. Keeps the original 1-hour-shift bug's
+  builder around as a fixture, with a dedicated test proving the detector
+  still catches it, so the check can't quietly regress into one that
+  always passes.
+- **API** (`test_api.py`) — the FastAPI service via `TestClient`, real
+  fitted models, no mocking.
+- **Integration** (`test_integration.py`) — the seam the other layers
+  can't see: data through `prepare_backtest`, a full backtest for every
+  registered model, and a complete train → save → load → `Predictor` →
+  live API round trip, all through the real functions each script calls,
+  against a small synthetic dataset built for speed rather than the real
+  one. This is a wiring check, not a source of measured results — those
+  come only from the real scripts against the real data, in `docs/`.
+
+66 tests total.
 
 ## Data and credits
 
