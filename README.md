@@ -40,8 +40,12 @@ design rationale and measured results.
       MAPE 76.8% on the untouched 90-day holdout (worse than the 0.616 kW
       backtest average; see docs/holdout_evaluation.md for why)
 
-- [ ] Inference / REST API
-- [ ] Testing
+- [x] Inference — `Predictor` class turns a window of recent history into a
+      24h forecast from the saved model artifact; see "Inference" below
+- [x] REST API — FastAPI `POST /forecast`, `GET /health`, `GET /metrics`;
+      see "REST API" below
+- [ ] Testing — unit/leakage/API tests exist; integration/Docker-level
+      testing still pending
 - [ ] Docker
 - [ ] CI/CD
 - [ ] Monitoring
@@ -165,6 +169,87 @@ figure. `docs/holdout_evaluation.md` covers what the gap does and doesn't
 tell us, and why the most comparable backtest fold (nearly adjacent in
 time) actually did much better, most likely a seasonal effect rather than
 a sign the backtest was optimistic across the board.
+
+## Inference
+
+`src/elec_forecast/inference.py` provides `Predictor`, the one thing a
+future API layer depends on:
+
+```python
+from elec_forecast.inference import Predictor
+
+predictor = Predictor("data/processed/model")  # loads the saved artifact once
+forecast = predictor.predict(history)          # history: DataFrame with
+                                                # datetime + target_mean_kw,
+                                                # ending at origin - 1h
+```
+
+It calls `build_forecast_features`, a second entry point into
+`features.py` alongside the training-time `build_features`. Both share one
+private feature-computation core so the two can't silently drift apart;
+`tests/test_forecast_features.py` proves it directly, by checking that
+features computed from history alone (before the fact) exactly match
+features computed from the full series with hindsight (after the fact).
+
+At construction, `Predictor` checks the loaded model's metadata (feature
+list, horizon, target column) against what the installed code currently
+expects, and fails loudly if they've drifted apart, rather than silently
+scoring a model against the wrong features.
+
+**Bug found and fixed while building this:** the rolling-window features
+computed correctly for training (`build_features`, where the series
+already spans the dates being computed) but returned all-NaN for inference
+(`build_forecast_features`, where the series is history-only and the
+dates being forecast aren't in it at all). The original implementation
+shifted the series by the horizon and then looked up the forecast dates
+directly in that shifted series — which only has values where the
+original series did, i.e. never at the forecast dates themselves. The fix
+computes the rolling stats on the unshifted series and looks them up at
+`(forecast date - horizon)` instead, which lands inside the history range
+for every valid forecast window. Arithmetically it's the same rolling
+window either way; only the lookup direction changed. Caught by the Phase
+11 dry run (`tests/test_inference.py`, `tests/test_forecast_features.py`)
+before any of this shipped — not reported by a user, not found in
+production, because there isn't one yet.
+
+## REST API
+
+`src/elec_forecast/api.py` is a FastAPI service wrapping `Predictor`. Run
+it (from the repo root, so the default model path resolves):
+
+```
+uvicorn elec_forecast.api:app --reload --port 8000
+```
+
+By default it loads the model from `data/processed/model` (the artifact
+`scripts/evaluate_holdout.py` saves). Point it elsewhere with the
+`MODEL_DIR` environment variable — useful for serving a different trained
+model without a rebuild.
+
+**`POST /forecast`** — body: `{"history": [{"datetime": ..., "target_mean_kw": ...}, ...], "origin": null}`.
+`history` must be a contiguous run of hourly readings ending at
+`origin - 1h`; omit `origin` and it defaults to one hour after the last
+history point. Returns 24 `{"datetime": ..., "predicted_kw": ...}` rows.
+Malformed input (a gap, history that doesn't reach the origin, not enough
+lookback) returns 400 with the same message `build_forecast_features`
+raises — no separate error-message layer to keep in sync.
+
+**`GET /health`** — `{"status": "ok", "model": "lightgbm"}` once the model
+loads at startup, or `{"status": "unhealthy", "detail": ...}` if it
+didn't. The app still starts even when the model fails to load (so an
+orchestrator can see `/health` report the problem), and `/forecast`
+returns 503 in that state rather than crashing.
+
+**`GET /metrics`** — Prometheus text format: request count by outcome
+(`success/rejected`) and a request-latency histogram. This tracks that the
+API is being called and how it's responding, not forecast accuracy —
+that's Phase 16.
+
+Tested with `tests/test_api.py` (FastAPI `TestClient`, a real fitted
+LightGBM model built in a temp directory per test, no mocking) and
+manually smoke-tested against a real running `uvicorn` process hitting
+`/health`, `/forecast`, `/metrics`, and the gap-in-history error path over
+real HTTP before this shipped.
 
 ## Tests and lint
 
