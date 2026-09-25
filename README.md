@@ -410,6 +410,14 @@ watching genuine production traffic. If this were deployed, `/forecast`
 requests and their eventual actuals would feed these same functions
 directly.
 
+## License
+
+This project's code is licensed under the [MIT License](LICENSE) — see the
+`LICENSE` file for the full text.
+
+That covers the code only. The dataset itself is separately licensed by
+its own source (UCI, CC BY 4.0) — see "Data and credits" below.
+
 ## Data and credits
 
 Household power consumption data is from the UCI Machine Learning
