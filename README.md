@@ -1,5 +1,9 @@
 # Household Electricity Demand Forecasting
 
+[![CI](https://github.com/Gaurang-Verse/electricity-demand-forecasting/actions/workflows/ci.yml/badge.svg)](https://github.com/Gaurang-Verse/electricity-demand-forecasting/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 Forecasts the next 24 hours of household electricity consumption from
 historical smart-meter readings, built leakage-safe: chronological splits
 only, and walk-forward backtesting across multiple time windows instead of
