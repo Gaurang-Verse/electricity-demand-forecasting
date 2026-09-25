@@ -70,9 +70,10 @@ the same distribution) and a positive control (fires on a genuinely
 shifted batch); demonstrated against real backtest/holdout data, since
 there's no live production traffic yet. See "Monitoring" below.
 
-⬜ **Full documentation** — `docs/` covers the data and modeling phases in
-depth; inference/API/Docker/CI/monitoring design decisions are documented
-in the README only so far.
+✅ **Full documentation** — `docs/` covers the data and modeling phases in
+depth (dataset, validation, features/backtesting, backtest results,
+holdout evaluation); inference, the API, Docker, CI/CD, and Monitoring are
+documented in this README's own sections below.
 
 ## Setup
 
