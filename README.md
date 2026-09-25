@@ -51,7 +51,9 @@ design rationale and measured results.
       mounted and reports "ok" once one is, `/forecast` responds over
       real HTTP. See "Docker" below.
 - [ ] CI/CD — running lint + this test suite automatically on push
-- [ ] Monitoring
+- [x] Monitoring — feature drift detection (z-score based, validated with
+      a null test and a positive control) and rolling forecast-error
+      tracking; see "Monitoring" below
 - [ ] Full documentation
 
 ## Setup
@@ -291,6 +293,13 @@ directory is never baked in).
 
 Build:
 66 tests total.
+
+## Monitoring
+
+`src/elec_forecast/monitoring.py` provides two checks, both demonstrated
+against real project data rather than live traffic, which doesn't exist
+yet:
+
 
 ## Data and credits
 
